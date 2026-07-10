@@ -55,8 +55,9 @@ def _view_context(kdb_cell: kdb_.Cell):
         # destroying the original layout when it is destroyed.
         view.show_layout(kdb_cell.layout().dup(), False)
         view.add_missing_layers()
-        view.max_hier()
         view.active_cellview().set_cell_name(kdb_cell.name)
+        # Selecting a cell resets the hierarchy depth to the view default.
+        view.max_hier()
         view.zoom_fit()
         yield view
     finally:
