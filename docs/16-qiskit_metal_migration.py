@@ -25,6 +25,7 @@
 from enum import Enum
 
 import gdswell as gw
+from gdswell.components.bend_circular import bend_circular
 from gdswell.components.straight import straight
 
 gw.config.async_cells = False
@@ -35,6 +36,8 @@ class Layers(gw.Layer, Enum):
     GROUND_DRAWN = (2, 0)
     ETCH = (3, 0)
     GROUND_FINAL = (4, 0)
+    QUBIT = (5, 0)
+    JUNCTION = (6, 0)
 
 
 # %% [markdown]
@@ -156,6 +159,145 @@ print(f"Mapped mask frozen: {final_ground.frozen}")
 # %% [markdown]
 # This recipe is explicit and composable. It does not rely on a renderer
 # interpreting a row-level subtract flag.
+
+# %% [markdown]
+# ## A Qubit-Resonator-Feedline Design
+#
+# A common planar architecture contains three distinct pieces:
+#
+# 1. a CPW feedline for input and output signals;
+# 2. a quarter-wave-style resonator coupled to the feedline by proximity; and
+# 3. a two-pad transmon-like qubit coupled to the open end of the resonator.
+#
+# In GDSwell, the feedline and resonator are ordinary cells with CPW ports. The
+# qubit is a polygon cell because its capacitive coupling is defined by spatial
+# gaps rather than by a waveguide connection. The dimensions here are an
+# educational layout example, not a fabrication-ready PDK or EM design.
+
+
+# %%
+@gw.cell
+def feedline(length: float = 900.0) -> gw.Cell:
+    """A straight CPW feedline with exposed input and output ports."""
+    cell = gw.Cell()
+    instance = cell.add_ref(straight(cpw, length=length))
+    cell.add_port(instance["0"].renamed("input"))
+    cell.add_port(instance["1"].renamed("output"))
+    cell.add_info("role", "feedline")
+    return cell
+
+
+@gw.cell
+def resonator(
+    first_run: float = 220.0,
+    vertical_run: float = 80.0,
+    middle_run: float = 180.0,
+    final_run: float = 100.0,
+    radius: float = 20.0,
+) -> gw.Cell:
+    """A routed resonator with a feedline-side input and an open end."""
+    cell = gw.Cell()
+    first = cell.add_ref(straight(cpw, length=first_run))
+    bend_1 = cell.add_ref_connected(bend_circular(cpw, radius=radius, angle=90.0), "0", first["1"])
+    vertical = cell.add_ref_connected(straight(cpw, length=vertical_run), "0", bend_1["1"])
+    bend_2 = cell.add_ref_connected(
+        bend_circular(cpw, radius=radius, angle=-90.0), "0", vertical["1"]
+    )
+    middle = cell.add_ref_connected(straight(cpw, length=middle_run), "0", bend_2["1"])
+    bend_3 = cell.add_ref_connected(bend_circular(cpw, radius=radius, angle=90.0), "0", middle["1"])
+    vertical_2 = cell.add_ref_connected(straight(cpw, length=vertical_run), "0", bend_3["1"])
+    bend_4 = cell.add_ref_connected(
+        bend_circular(cpw, radius=radius, angle=-90.0), "0", vertical_2["1"]
+    )
+    open_end = cell.add_ref_connected(straight(cpw, length=final_run), "0", bend_4["1"])
+
+    cell.add_port(first["0"].renamed("coupling"))
+    cell.add_port(open_end["1"].renamed("open_end"))
+    cell.add_info("role", "resonator")
+    cell.add_info("length", first_run + vertical_run + middle_run + vertical_run + final_run)
+    return cell
+
+
+@gw.cell
+def transmon_like_qubit(
+    pad_width: float = 90.0,
+    pad_height: float = 140.0,
+    pad_gap: float = 12.0,
+    junction_length: float = 12.0,
+    junction_width: float = 0.2,
+) -> gw.Cell:
+    """Two capacitive pads joined by a small junction-layer bridge."""
+    cell = gw.Cell()
+    left = pad_gap / 2 + pad_width
+    cell.add_polygon(
+        [
+            (-left, -pad_height / 2),
+            (-pad_gap / 2, -pad_height / 2),
+            (-pad_gap / 2, pad_height / 2),
+            (-left, pad_height / 2),
+        ],
+        Layers.QUBIT,
+    )
+    cell.add_polygon(
+        [
+            (pad_gap / 2, -pad_height / 2),
+            (left, -pad_height / 2),
+            (left, pad_height / 2),
+            (pad_gap / 2, pad_height / 2),
+        ],
+        Layers.QUBIT,
+    )
+    half_junction = junction_length / 2
+    cell.add_polygon(
+        [
+            (-half_junction, -junction_width / 2),
+            (half_junction, -junction_width / 2),
+            (half_junction, junction_width / 2),
+            (-half_junction, junction_width / 2),
+        ],
+        Layers.JUNCTION,
+    )
+    cell.add_info("role", "transmon-like qubit")
+    return cell
+
+
+@gw.cell
+def qubit_resonator_feedline() -> gw.Cell:
+    """Assemble the feedline, resonator, and qubit in one top cell."""
+    cell = gw.Cell()
+    feed = cell.add_ref(feedline(), origin=(0.0, 0.0))
+
+    # Keep the resonator close to, but not connected to, the feedline.
+    resonator_instance = cell.add_ref(resonator(), origin=(120.0, 45.0))
+
+    # The qubit sits near the open resonator end; its capacitive gap is geometric.
+    qubit_instance = cell.add_ref(transmon_like_qubit(), origin=(665.0, 330.0))
+
+    cell.add_label("feedline", (25.0, -18.0), Layers.SIGNAL)
+    cell.add_label("resonator", (130.0, 25.0), Layers.SIGNAL)
+    cell.add_label("qubit", (620.0, 420.0), Layers.QUBIT)
+    cell.add_info(
+        "architecture",
+        "CPW feedline, capacitively coupled resonator, transmon-like qubit",
+    )
+    cell.add_info("feedline_ports", list(feed.cell.ports))
+    cell.add_info("resonator_ports", list(resonator_instance.cell.ports))
+    cell.add_info("qubit_instance", qubit_instance.name)
+    return cell
+
+
+architecture = qubit_resonator_feedline()
+print(f"Architecture instances: {len(architecture.instances)}")
+print(f"Architecture bounding box: {architecture.bbox()}")
+
+# %% [markdown]
+# The resonator is intentionally not snapped to the feedline: the coupling is
+# a designed gap. The qubit is likewise placed near the resonator's open end,
+# where the pad geometry controls capacitive coupling. Use a dedicated EM flow
+# to tune those gaps, lengths, materials, and junction representation.
+
+# %%
+architecture
 
 # %% [markdown]
 # ## What Metal Users Must Supply
