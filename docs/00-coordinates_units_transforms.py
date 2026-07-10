@@ -82,6 +82,13 @@ print(f"Rotated right port: {rotated['right'].position}")
 print(f"Mirrored right angle: {mirrored['right'].angle}")
 
 # %% [markdown]
+# The three placements below share one definition but use different transforms.
+
+# %%
+parent.layout.wait()
+parent
+
+# %% [markdown]
 # Public placement rotations are Manhattan: `0`, `90`, `180`, and `270`.
 # Arbitrary-angle placement is not currently supported by `Cell.add_ref()` or
 # `add_ref_connected()`.
@@ -104,6 +111,9 @@ second = connected_parent.add_ref_connected(
 print(f"First output: {first['1'].position}")
 print(f"Second input: {second['0'].position}")
 print(f"Connected: {first['1'].connects_to(second['0'])}")
+
+# %%
+connected_parent
 
 # %% [markdown]
 # Port angles point outward. Therefore the input port of a component that is

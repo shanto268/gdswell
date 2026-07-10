@@ -67,6 +67,13 @@ top.add_ref(pad(), origin=(1_000.0, 500.0), rotation=90)
 print(f"Top-level instances: {len(top.instances)}")
 
 # %% [markdown]
+# The basic Metal-style component is still an ordinary hierarchical cell that
+# can be rendered directly in a notebook.
+
+# %%
+top
+
+# %% [markdown]
 # Metal's `pos_x`, `pos_y`, and `orientation` options become `add_ref`
 # placement arguments. Component geometry stays reusable and location does not
 # become part of the child definition.

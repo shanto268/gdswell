@@ -86,6 +86,15 @@ print(f"Instances in top cell: {len(top.instances)}")
 print(f"Rotated output port: {right['output'].position}")
 
 # %% [markdown]
+# ## Visualizing the Hierarchy
+#
+# In a notebook, displaying a `Cell` renders its KLayout geometry as a PNG.
+
+# %%
+top.layout.wait()
+top
+
+# %% [markdown]
 # `left.cell` and `right.cell` are the same frozen definition. The instances
 # differ only by their transformations in the parent coordinate system.
 

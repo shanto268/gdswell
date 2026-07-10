@@ -119,3 +119,10 @@ parent = gw.Cell()
 parent.add_ref(s_curve)
 parent.add_ref(straight(xs, length=10.0), origin=(0.0, -10.0))
 print(f"Parent children: {len(parent.instances)}")
+
+# %% [markdown]
+# The rendered output combines the sampled smooth path and a straight for
+# comparison.
+
+# %%
+parent

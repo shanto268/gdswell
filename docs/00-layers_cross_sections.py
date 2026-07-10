@@ -157,6 +157,13 @@ waveguide = straight(marked, length=25.0)
 print(f"Periodic instances: {len(waveguide.instances)}")
 
 # %% [markdown]
+# The cell output below shows the continuous core together with its periodic
+# marker references.
+
+# %%
+waveguide
+
+# %% [markdown]
 # Periodic cells are rotated to the nearest Manhattan tangent. They move with
 # the path, but they are not interpolated by a cross-section transition.
 

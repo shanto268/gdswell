@@ -9,6 +9,28 @@ A modern Python framework for seamless KLayout integration and intuitive layout 
 [Get Started](./01-getting_started.py){.button} [Reference](./reference/index.md){.button-outline}
 :::
 
+## Foundation Guides
+
+Start with the concepts that the feature tutorials build on:
+
+:::{card} Core data model
+Layouts, cells, instances, ports, and asynchronous cell proxies. [Open guide ->](./00-core_data_model.py)
+:::
+
+:::{card} Geometry foundations
+Coordinates, micron units, and transforms. [Open guide ->](./00-coordinates_units_transforms.py)
+
+Layers, cross-sections, and symbolic paths: [layers](./00-layers_cross_sections.py) and [paths](./00-paths_symbolic_geometry.py).
+:::
+
+:::{card} Cell lifecycle and caching
+Freezing, hierarchy, and content-addressed identities: [lifecycle](./00-cell_lifecycle_hierarchy.py). Disk caching and asynchronous generation: [caching](./00-caching_async.py).
+:::
+
+:::{card} Qiskit Metal migration
+Map QDesign, QComponent, pins, QGeometry, and subtractive geometry to GDSwell. [Open guide ->](./16-qiskit_metal_migration.py)
+:::
+
 :::{grid}
 :gutter: 3
 

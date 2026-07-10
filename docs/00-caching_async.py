@@ -111,7 +111,17 @@ with gw.Layout(name="async_cache") as async_layout:
     print(f"Returned type: {type(futures[0]).__name__}")
     async_layout.wait()
     print(f"Generated cells: {[future.name for future in futures]}")
+    preview = gw.Cell()
+    for index, future in enumerate(futures):
+        preview.add_ref(future, origin=(index * 10.0, 0.0))
 gw.config.async_cells = False
+
+# %% [markdown]
+# Once the futures are resolved, they can be assembled and rendered like normal
+# cells.
+
+# %%
+preview
 
 # %% [markdown]
 # `Layout.wait()` resolves every pending cell in that layout and propagates

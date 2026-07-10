@@ -95,6 +95,13 @@ print(f"Top-level instances: {len(top.instances)}")
 print(f"Top bounding box: {top.bbox()}")
 
 # %% [markdown]
+# Repeated references remain visible as one compact hierarchical layout.
+
+# %%
+top.layout.wait()
+top
+
+# %% [markdown]
 # The two `one` references point to the same definition. KLayout can therefore
 # keep repeated structures compact in memory and in exported GDS/OASIS files.
 
@@ -121,6 +128,9 @@ def assembly() -> gw.Cell:
 
 assembled = assembly()
 print(f"Assembly children: {len(assembled.instances)}")
+
+# %%
+assembled
 
 # %% [markdown]
 # ## Exporting a Layout
