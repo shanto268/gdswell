@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from gdswell.layer import Layer
     from gdswell.layout import Layout
 
+from gdswell.anchor import Anchor
 from gdswell.instance import Instance
 from gdswell.port import Port
 
@@ -34,6 +35,7 @@ class Cell(metaclass=abc.ABCMeta):
         self._frozen = False
         self._info_data: dict[str, Any] = {}
         self._ports_data: dict[str, Port] = {}
+        self._anchors_data: dict[str, Anchor] = {}
         self._instances_data: list[Instance] | None = []
         self._name_counters: defaultdict[str, count] = defaultdict(count)
         self._function_name: str | None = None
@@ -82,6 +84,7 @@ class Cell(metaclass=abc.ABCMeta):
         instance._frozen = True
         instance._info_data = {}
         instance._ports_data = {}
+        instance._anchors_data = {}
         instance._instances_data = None  # Lazy population
         instance._name_counters = defaultdict(count)
         instance._function_name = None
@@ -181,6 +184,18 @@ class Cell(metaclass=abc.ABCMeta):
     def ports(self) -> Mapping[str, Port]:
         """Dictionary of ports in this cell."""
         return types.MappingProxyType(self._ports_data)
+
+    def add_anchor(self, anchor: Anchor) -> None:
+        """Add an anchor to the cell."""
+        self._check_frozen()
+        if anchor.name in self._anchors_data:
+            raise ValueError(f"Anchor '{anchor.name}' already exists in cell '{self.name}'.")
+        self._anchors_data[anchor.name] = anchor
+
+    @property
+    def anchors(self) -> Mapping[str, Anchor]:
+        """Dictionary of anchors in this cell."""
+        return types.MappingProxyType(self._anchors_data)
 
     @property
     def instances(self) -> Sequence[Instance]:

@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from gdswell.cell import Cell
 
 
+import types
+
+from gdswell.anchor import Anchor
 from gdswell.port import Port
 
 
@@ -69,6 +72,17 @@ class Instance(Mapping[str, Port]):
         """Internal cache for transformed ports."""
         trans = self.dtrans
         return {name: p.transformed(trans) for name, p in self._cell.ports.items()}
+
+    @property
+    def anchors(self) -> Mapping[str, Anchor]:
+        """Access the transformed anchors of this instance."""
+        return types.MappingProxyType(self._transformed_anchors)
+
+    @cached_property
+    def _transformed_anchors(self) -> dict[str, Anchor]:
+        """Internal cache for transformed anchors."""
+        trans = self.dtrans
+        return {name: a.transformed(trans) for name, a in self._cell.anchors.items()}
 
     def __getitem__(self, name: str) -> Port:
         """Access a port of the instanced cell, transformed to the parent coordinate system."""
