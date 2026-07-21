@@ -116,6 +116,12 @@ class Cell(metaclass=abc.ABCMeta):
     def __repr__(self) -> str:
         return f"Cell(name='{self.name}')"
 
+    def __eq__(self, other: object) -> bool:
+        """Return True when two Cell wrappers have the same name."""
+        if isinstance(other, Cell):
+            return self.name == other.name
+        return False
+
     # Cell equality is identity-based; keep hashing identity-based and stable
     # even when the underlying KLayout cell is renamed.
     __hash__ = object.__hash__
