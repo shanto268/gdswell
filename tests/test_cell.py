@@ -117,6 +117,18 @@ def test_implicit_layout() -> None:
     assert cell1.name.startswith("UnnamedCell_")
 
 
+def test_cell_equality_is_name_based() -> None:
+    cell = gw.Cell()
+    same_name_cell = gw.Cell()
+    other_cell = gw.Cell()
+
+    same_name_cell.kdb.name = cell.name
+
+    assert cell == same_name_cell
+    assert cell != other_cell
+    assert cell != object()
+
+
 def test_context_layout() -> None:
     with gw.Layout(name="context_layout") as layout:
         cell2 = gw.Cell()

@@ -116,6 +116,12 @@ class Cell(metaclass=abc.ABCMeta):
     def __repr__(self) -> str:
         return f"Cell(name='{self.name}')"
 
+    def __eq__(self, other: object) -> bool:
+        """Return True when two Cell wrappers have the same name."""
+        if isinstance(other, Cell):
+            return self.name == other.name
+        return False
+
     def __hash__(self) -> int:
         return hash(self.name)
 
