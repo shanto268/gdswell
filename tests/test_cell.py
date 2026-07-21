@@ -117,6 +117,17 @@ def test_implicit_layout() -> None:
     assert cell1.name.startswith("UnnamedCell_")
 
 
+def test_cell_hash_is_identity_based_and_stable_on_rename() -> None:
+    cell = gw.Cell()
+    cells = {cell}
+    original_hash = hash(cell)
+
+    cell.kdb.name = "renamed_cell"
+
+    assert hash(cell) == original_hash
+    assert cell in cells
+
+
 def test_context_layout() -> None:
     with gw.Layout(name="context_layout") as layout:
         cell2 = gw.Cell()

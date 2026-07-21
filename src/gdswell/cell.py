@@ -116,8 +116,9 @@ class Cell(metaclass=abc.ABCMeta):
     def __repr__(self) -> str:
         return f"Cell(name='{self.name}')"
 
-    def __hash__(self) -> int:
-        return hash(self.name)
+    # Cell equality is identity-based; keep hashing identity-based and stable
+    # even when the underlying KLayout cell is renamed.
+    __hash__ = object.__hash__
 
     @property
     def layout(self) -> Layout:
