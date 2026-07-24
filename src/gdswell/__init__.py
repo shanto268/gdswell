@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 import gdswell.netlist  # noqa: F401
+from gdswell.anchor import Anchor
 from gdswell.cell import Cell
 from gdswell.config import clear_cache, config
 from gdswell.cross_section import CellSection, CrossSection, LayerSection, S
@@ -37,6 +38,7 @@ __all__ = [
     "Cell",
     "Instance",
     "Port",
+    "Anchor",
     "cell",
     "CrossSection",
     "LayerSection",

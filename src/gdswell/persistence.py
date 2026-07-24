@@ -56,6 +56,15 @@ def save_cell_metadata(cell: Cell) -> None:
         print(cell._ports_data)
         raise e
 
+    try:
+        anchors_data = {name: anchor.to_dict() for name, anchor in cell._anchors_data.items()}
+        anchors_json = json.dumps(anchors_data)
+        cell.kdb.add_meta_info(kdb_.LayoutMetaInfo("anchors", anchors_json, None, True))
+    except Exception as e:
+        print(f"Error saving anchors for {cell.name}: {e}")
+        print(cell._anchors_data)
+        raise e
+
 
 def restore_cell_metadata(cell: Cell) -> None:
     """Read cell info and ports from klayout metadata and restore them to the Cell wrapper."""
@@ -116,6 +125,18 @@ def restore_cell_metadata(cell: Cell) -> None:
                     )
 
                 cell._ports_data[port_name] = Port(**data)
+        elif meta.name == "anchors":
+            anchors_data = json.loads(meta.value)
+            if not isinstance(anchors_data, dict):
+                raise ValueError("anchors must be a dictionary")
+
+            from gdswell.anchor import Anchor
+
+            for anchor_name, data in anchors_data.items():
+                if "position" in data:
+                    data["position"] = tuple(data["position"])
+
+                cell._anchors_data[anchor_name] = Anchor(**data)
 
 
 def copy_kdb_cell(
