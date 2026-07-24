@@ -63,4 +63,4 @@ __all__ = [
     "print_stats",
     "reset_stats",
 ]
-__version__ = "1.0.1"
+__version__ = "1.0.2"
