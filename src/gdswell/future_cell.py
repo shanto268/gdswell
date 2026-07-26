@@ -66,9 +66,10 @@ class FutureCell(Cell):
             cell = Cell._from_kdb_cell(raw_cell.kdb, layout=home_ly)
             object.__setattr__(self, "_cell", cell)
 
-            # Remove from layout's pending set, but KEEP in spectator's PENDING_CACHE
-            # to maintain identity preservation for future @cell calls.
-            home_ly._pending_cells.discard(self)
+            # Remove from the layout's pending collection, but keep the proxy
+            # in the layout cache to preserve identity for future @cell calls.
+            with home_ly._lock:
+                home_ly._pending_cells.pop(self, None)
 
             return cell
 
