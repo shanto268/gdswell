@@ -57,8 +57,6 @@ class Layout:
         self._cells: dict[int, Cell] = {}
         self._cache: dict[str, Cell | FutureCell] = {}
         self._lock = threading.RLock()
-        # Preserve submission order so cold async builds import cells in the
-        # same order as warm disk-cache hits.
         self._pending_cells: dict[FutureCell, None] = {}
 
         if set_as_default:
