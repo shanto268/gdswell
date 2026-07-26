@@ -146,6 +146,130 @@ def test_stackup_hash_string_includes_keep_flag():
     assert (a - b)._hash_string != (a + b)._hash_string
 
 
+def test_insert_before_by_name_middle():
+    a, b, c = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0), _e("C", 0.0, 1.0)
+    n = _e("N", 0.0, 1.0)
+    s = (a + b + c).insert_before("B", n)
+    assert [it.entry.name for it in s.items] == ["A", "N", "B", "C"]
+    assert all(it.keep for it in s.items)
+
+
+def test_insert_after_by_name_middle():
+    a, b, c = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0), _e("C", 0.0, 1.0)
+    n = _e("N", 0.0, 1.0)
+    s = (a + b + c).insert_after("B", n)
+    assert [it.entry.name for it in s.items] == ["A", "B", "N", "C"]
+
+
+def test_insert_before_first_slot():
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    n = _e("N", 0.0, 1.0)
+    s = (a + b).insert_before("A", n)
+    assert [it.entry.name for it in s.items] == ["N", "A", "B"]
+
+
+def test_insert_after_last_slot():
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    n = _e("N", 0.0, 1.0)
+    s = (a + b).insert_after("B", n)
+    assert [it.entry.name for it in s.items] == ["A", "B", "N"]
+
+
+def test_insert_anchor_by_entry_equality():
+    # Anchor matched via StackupEntry.__eq__, not identity: build an equal copy.
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    n = _e("N", 0.0, 1.0)
+    anchor = _e("B", 0.0, 1.0)  # equal to b, different object
+    assert anchor is not b
+    s = (a + b).insert_before(anchor, n)
+    assert [it.entry.name for it in s.items] == ["A", "N", "B"]
+
+
+def test_insert_keep_false_payload():
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    n = _e("N", 0.0, 1.0)
+    s = (a + b).insert_after("A", n, keep=False)
+    assert [(it.entry.name, it.keep) for it in s.items] == [
+        ("A", True),
+        ("N", False),
+        ("B", True),
+    ]
+
+
+def test_insert_stackup_payload_preserves_keep_flags():
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    x, y = _e("X", 0.0, 1.0), _e("Y", 0.0, 1.0)
+    payload = x - y  # X keep=True, Y keep=False
+    s = (a + b).insert_before("B", payload)
+    assert [(it.entry.name, it.keep) for it in s.items] == [
+        ("A", True),
+        ("X", True),
+        ("Y", False),
+        ("B", True),
+    ]
+
+
+def test_insert_stackup_payload_keep_false_forces_all_cuts():
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    x, y = _e("X", 0.0, 1.0), _e("Y", 0.0, 1.0)
+    s = (a + b).insert_before("B", x + y, keep=False)
+    assert [(it.entry.name, it.keep) for it in s.items] == [
+        ("A", True),
+        ("X", False),
+        ("Y", False),
+        ("B", True),
+    ]
+
+
+def test_insert_anchor_matches_keep_false_slot():
+    # The anchor identifies the entry, not the slot: a cutter slot works.
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    n = _e("N", 0.0, 1.0)
+    s = (a - b).insert_after("B", n)
+    assert [(it.entry.name, it.keep) for it in s.items] == [
+        ("A", True),
+        ("B", False),
+        ("N", True),
+    ]
+
+
+def test_insert_original_unchanged():
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    original = a + b
+    original.insert_before("B", _e("N", 0.0, 1.0))
+    assert [it.entry.name for it in original.items] == ["A", "B"]
+
+
+def test_insert_anchor_not_found_raises():
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    with pytest.raises(ValueError, match="not found"):
+        (a + b).insert_before("Z", _e("N", 0.0, 1.0))
+
+
+def test_insert_duplicate_name_anchor_raises():
+    # Two distinct entries sharing a name: name anchor is ambiguous.
+    a1 = _e("A", 0.0, 1.0)
+    a2 = _e("A", 0.0, 2.0)
+    with pytest.raises(ValueError, match="ambiguous"):
+        (a1 + a2).insert_after("A", _e("N", 0.0, 1.0))
+    # But the exact entry disambiguates:
+    s = (a1 + a2).insert_after(a2, _e("N", 0.0, 1.0))
+    assert [it.entry.name for it in s.items] == ["A", "A", "N"]
+
+
+def test_insert_duplicate_entry_anchor_raises():
+    # The same entry in two slots: even an exact-entry anchor is ambiguous.
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    with pytest.raises(ValueError, match="ambiguous"):
+        (a + b + a).insert_before(a, _e("N", 0.0, 1.0))
+
+
+def test_insert_bad_anchor_type_raises():
+    a, b = _e("A", 0.0, 1.0), _e("B", 0.0, 1.0)
+    with pytest.raises(TypeError, match="anchor"):
+        (a + b).insert_before(0, _e("N", 0.0, 1.0))
+
+
 def test_entry_size_wraps_every_layer():
     e = StackupEntry("Si", {0.0: PDK.WG, 1.0: PDK.WG.size(-0.05)})
     sized = e.size(0.1)
