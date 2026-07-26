@@ -40,7 +40,7 @@ class LayerBase:
     def __xor__(self, other: LayerBase) -> LayerXor:
         return LayerXor(self, other)
 
-    def size(self, dx: float, dy: float | None = None, join_mode: int = 1) -> LayerSize:
+    def size(self, dx: float, dy: float | None = None, join_mode: int = 2) -> LayerSize:
         """Enlarge or shrink the layer's shapes by the given distance."""
         return LayerSize(self, dx, dy, join_mode)
 
@@ -280,7 +280,7 @@ class LayerSize(LayerBase):
     layer: LayerBase
     dx: float
     dy: float | None = None
-    join_mode: int = 1
+    join_mode: int = 2
 
     def get_shapes(self, cell: Cell) -> kdb.Region:
         dbu = cell.layout.kdb.dbu
@@ -291,7 +291,7 @@ class LayerSize(LayerBase):
     @property
     def _hash_string(self) -> str:
         dy_str = f",{self.dy:.6f}" if self.dy is not None else ""
-        mode_str = f",mode={self.join_mode}" if self.join_mode != 1 else ""
+        mode_str = f",mode={self.join_mode}" if self.join_mode != 2 else ""
         return f"Size({self.layer._hash_string},{self.dx:.6f}{dy_str}{mode_str})"
 
 
