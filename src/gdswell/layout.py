@@ -173,7 +173,7 @@ class Layout:
             top_cells = self._kdb_layout.top_cells()
             if not top_cells:
                 raise ValueError(f"No cells found in layout '{self.name}'. Cannot stream to Klive.")
-            show(top_cells[0])
+            show(top_cells[0], include_all_cells=True)
 
     def _repr_png_(self) -> bytes:
         """Jupyter Notebook representation."""

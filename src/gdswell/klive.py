@@ -12,12 +12,14 @@ if TYPE_CHECKING:
     import klayout.db as kdb
 
 
-def show(kdb_cell: kdb.Cell) -> None:
+def show(kdb_cell: kdb.Cell, include_all_cells: bool = False) -> None:
     """
     Stream a specific cell to Klive for live viewing in KLayout.
 
     Args:
         kdb_cell: The klayout.db.Cell to show.
+        include_all_cells: Whether to stream every cell in the layout instead of only
+            ``kdb_cell`` and its dependencies.
     """
 
     kdb_layout = kdb_cell.layout()
@@ -27,7 +29,14 @@ def show(kdb_cell: kdb.Cell) -> None:
     fd, path = tempfile.mkstemp(suffix=".gds")
     os.close(fd)
     try:
-        kdb_layout.write(path)
+        if include_all_cells:
+            kdb_layout.write(path)
+        else:
+            import klayout.db as kdb
+
+            options = kdb.SaveLayoutOptions()
+            options.add_cell(kdb_cell.cell_index())
+            kdb_layout.write(path, options)
 
         data = {"gds": os.path.abspath(path)}
         if cell_name is not None:
