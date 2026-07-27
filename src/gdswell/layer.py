@@ -52,6 +52,10 @@ class LayerBase:
         """Return the bounding box of the layer's shapes."""
         return LayerBBox(self)
 
+    def bbox_per_shape(self) -> LayerBBoxPerShape:
+        """Return the bounding box of each individual shape in the layer."""
+        return LayerBBoxPerShape(self)
+
     def round_corners(self, radius1: float, radius2: float, segments: int) -> LayerRounded:
         """
         Round the corners of the shapes.
@@ -328,6 +332,23 @@ class LayerBBox(LayerBase):
     @property
     def _hash_string(self) -> str:
         return f"BBox({self.layer._hash_string})"
+
+
+@dataclass(frozen=True)
+class LayerBBoxPerShape(LayerBase):
+    layer: LayerBase
+
+    def get_shapes(self, cell: Cell) -> kdb.Region:
+        region = self.layer.get_shapes(cell)
+        bbox_region = kdb.Region()
+        for shape in region.each():
+            bbox_region.insert(shape.bbox())
+        bbox_region.merge()
+        return bbox_region
+
+    @property
+    def _hash_string(self) -> str:
+        return f"BBoxPerShape({self.layer._hash_string})"
 
 
 @dataclass(frozen=True)
