@@ -116,6 +116,33 @@ stack = substrate + box + lower_clad + upper_clad + si_slab + si_rib + heater + 
 print(stack)
 
 # %% [markdown]
+# ## Inserting entries into an existing stackup
+
+# It is sometimes useful to add entries to an existing stack instead of completely re-creating it.
+# `insert_before(anchor, new)` and `insert_after(anchor, new)` return a new
+# `Stackup` with `new` spliced next to the slot matching `anchor`, targeted by either entry
+# name or a `StackupEntry` object (matched by equality).
+# Passing a whole `Stackup` splices all of its items in at once. Setting `keep=False`
+# turns everything inserted into a cutter (as if concatenated with "-"). For instance:
+
+# %%
+etch_stop = gw.StackupEntry.uniform("Etch_stop", device_extent, 1.5, 1.55)
+print(stack.insert_after("Lower_clad", etch_stop))
+
+# %% [markdown]
+# An anchor must match exactly one target slot: an unknown anchor raises
+# `ValueError`, and so does an ambiguous one (duplicate names are legal in a
+# stackup, so silently picking a slot could corrupt painter's order). Passing
+# the exact `StackupEntry` instead of a name is the way to disambiguate:
+
+# %%
+doubled = stack + si_rib  # a second "Si_rib" slot
+try:
+    doubled.insert_after("Si_rib", etch_stop)
+except ValueError as e:
+    print(e)
+
+# %% [markdown]
 # ## Stack perturbations
 #
 # Both `StackupEntry` and `Stackup` are immutable: every perturbation returns a
