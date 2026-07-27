@@ -169,7 +169,7 @@ def cell(func: F) -> F:
                     future = _GLOBAL_PENDING[unique_name]
                     f_cell = FutureCell(future, layout, unique_name)
                     layout._cache[unique_name] = f_cell
-                    layout._pending_cells.add(f_cell)
+                    layout._pending_cells[f_cell] = None
                     return f_cell
 
             # 6. Create cell on miss
@@ -207,7 +207,7 @@ def cell(func: F) -> F:
                 f_cell = FutureCell(future, layout, unique_name)
                 with layout._lock:
                     layout._cache[unique_name] = f_cell
-                layout._pending_cells.add(f_cell)
+                    layout._pending_cells[f_cell] = None
                 return f_cell
 
     return cast(F, wrapper)

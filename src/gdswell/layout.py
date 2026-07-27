@@ -57,7 +57,7 @@ class Layout:
         self._cells: dict[int, Cell] = {}
         self._cache: dict[str, Cell | FutureCell] = {}
         self._lock = threading.RLock()
-        self._pending_cells: set[FutureCell] = set()
+        self._pending_cells: dict[FutureCell, None] = {}
 
         if set_as_default:
             Layout._default_layout = self
@@ -207,6 +207,6 @@ class Layout:
                 p._get_cell()
 
                 with self._lock:
-                    self._pending_cells.discard(p)
+                    self._pending_cells.pop(p, None)
         finally:
             ACTIVE_LAYOUT.reset(token)

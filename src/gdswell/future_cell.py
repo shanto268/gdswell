@@ -68,7 +68,8 @@ class FutureCell(Cell):
 
             # Remove from layout's pending set, but KEEP in spectator's PENDING_CACHE
             # to maintain identity preservation for future @cell calls.
-            home_ly._pending_cells.discard(self)
+            with home_ly._lock:
+                home_ly._pending_cells.pop(self, None)
 
             return cell
 
