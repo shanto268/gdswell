@@ -40,9 +40,9 @@ class LayerBase:
     def __xor__(self, other: LayerBase) -> LayerXor:
         return LayerXor(self, other)
 
-    def size(self, dx: float, dy: float | None = None) -> LayerSize:
+    def size(self, dx: float, dy: float | None = None, join_mode: int = 2) -> LayerSize:
         """Enlarge or shrink the layer's shapes by the given distance."""
-        return LayerSize(self, dx, dy)
+        return LayerSize(self, dx, dy, join_mode)
 
     def transformed(self, t: kdb.Trans | kdb.DTrans) -> LayerTransformed:
         """Apply a transformation to the layer's shapes."""
@@ -280,17 +280,19 @@ class LayerSize(LayerBase):
     layer: LayerBase
     dx: float
     dy: float | None = None
+    join_mode: int = 2
 
     def get_shapes(self, cell: Cell) -> kdb.Region:
         dbu = cell.layout.kdb.dbu
         dx_dbu = int(round(self.dx / dbu))
         dy_dbu = int(round(self.dy / dbu)) if self.dy is not None else dx_dbu
-        return self.layer.get_shapes(cell).sized(dx_dbu, dy_dbu)
+        return self.layer.get_shapes(cell).sized(dx_dbu, dy_dbu, self.join_mode)
 
     @property
     def _hash_string(self) -> str:
         dy_str = f",{self.dy:.6f}" if self.dy is not None else ""
-        return f"Size({self.layer._hash_string},{self.dx:.6f}{dy_str})"
+        mode_str = f",mode={self.join_mode}" if self.join_mode != 2 else ""
+        return f"Size({self.layer._hash_string},{self.dx:.6f}{dy_str}{mode_str})"
 
 
 @dataclass(frozen=True)
