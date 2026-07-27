@@ -198,6 +198,69 @@ class Stackup:
             )
         return NotImplemented
 
+    # --- insertion -----------------------------------------------------------
+
+    def _insert_at(
+        self,
+        anchor: str | StackupEntry,
+        new: StackupEntry | Stackup,
+        *,
+        keep: bool,
+        offset: int,
+    ) -> Stackup:
+        """Splice ``new`` at the unique slot matching ``anchor``, plus ``offset``.
+
+        ``anchor`` matches by ``entry.name`` when a str, by ``StackupEntry``
+        equality otherwise; the slot's ``keep`` flag is ignored. Exactly one
+        slot must match — zero or several raise ``ValueError``.
+        """
+        if isinstance(anchor, str):
+            matches = [i for i, it in enumerate(self.items) if it.entry.name == anchor]
+        elif isinstance(anchor, StackupEntry):
+            matches = [i for i, it in enumerate(self.items) if it.entry == anchor]
+        else:
+            raise TypeError(f"anchor must be a str or StackupEntry, got {type(anchor).__name__}")
+        if not matches:
+            raise ValueError(f"anchor {anchor!r} not found in this Stackup")
+        if len(matches) > 1:
+            raise ValueError(
+                f"anchor {anchor!r} is ambiguous: {len(matches)} slots match "
+                f"(indices {matches}); pass the exact StackupEntry or rebuild "
+                "via items slicing"
+            )
+        i = matches[0] + offset
+        rhs = Stackup._coerce_items(new, keep=keep)
+        return Stackup(items=self.items[:i] + rhs + self.items[i:])
+
+    def insert_before(
+        self,
+        anchor: str | StackupEntry,
+        new: StackupEntry | Stackup,
+        *,
+        keep: bool = True,
+    ) -> Stackup:
+        """Return a new Stackup with ``new`` inserted before ``anchor``.
+
+        ``anchor`` is an entry name or a ``StackupEntry`` (matched via
+        ``__eq__``) and must match exactly one slot. ``new`` follows the same
+        coercion as ``+`` / ``-``: a ``Stackup`` payload splices its items in,
+        and ``keep=False`` forces every inserted item to be a cutter.
+        """
+        return self._insert_at(anchor, new, keep=keep, offset=0)
+
+    def insert_after(
+        self,
+        anchor: str | StackupEntry,
+        new: StackupEntry | Stackup,
+        *,
+        keep: bool = True,
+    ) -> Stackup:
+        """Return a new Stackup with ``new`` inserted after ``anchor``.
+
+        Same anchor and payload semantics as ``insert_before``.
+        """
+        return self._insert_at(anchor, new, keep=keep, offset=1)
+
     # --- layer-recipe operations --------------------------------------------
 
     def map_layers(self, fn: Callable[[LayerBase], LayerBase]) -> Stackup:
