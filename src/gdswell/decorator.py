@@ -4,14 +4,14 @@ import functools
 import json
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Set, TypeVar, cast
 
 import klayout.db as kdb_
 
-from gdswell.cache import save_to_disk_cache
+from gdswell.cache import load_from_disk_cache, save_to_disk_cache
 from gdswell.cell import Cell
 from gdswell.config import config
 from gdswell.future_cell import FutureCell
@@ -19,8 +19,14 @@ from gdswell.hashing import compute_cell_name
 from gdswell.layout import Layout
 
 _EXECUTOR = ThreadPoolExecutor(max_workers=config.max_workers)
-_GLOBAL_PENDING: Dict[str, Any] = {}
+_GLOBAL_PENDING: Dict[str, Future[Cell]] = {}
 _GLOBAL_LOCK = threading.RLock()
+
+
+def _clear_global_pending(unique_name: str, future: Future[Cell]) -> None:
+    with _GLOBAL_LOCK:
+        if _GLOBAL_PENDING.get(unique_name) is future:
+            _GLOBAL_PENDING.pop(unique_name, None)
 
 
 def _finalize_cell(
@@ -30,8 +36,9 @@ def _finalize_cell(
     bound_args: dict[str, str],
     deps: Set[Path] | None = None,
     external_pkgs: Set[str] | None = None,
-) -> None:
-    """Rename, add metadata, freeze, and optionally cache a cell."""
+    cache_file: Path | None = None,
+) -> Cell:
+    """Finalize a cell and return the representation consumers should import."""
     if not isinstance(cell, Cell):
         msg = f"@cell function '{getattr(func, '__name__', 'unknown')}' must return a 'Cell'"
         raise TypeError(msg)
@@ -64,8 +71,17 @@ def _finalize_cell(
     cell.freeze()
 
     # Save to disk cache
-    if config.use_disk_cache:
-        save_to_disk_cache(cell, unique_name, deps=deps, external_pkgs=external_pkgs)
+    if cache_file is not None:
+        cache_file = save_to_disk_cache(
+            cell,
+            unique_name,
+            deps=deps,
+            external_pkgs=external_pkgs,
+            cache_file=cache_file,
+        )
+        return load_from_disk_cache(cache_file, unique_name)
+
+    return cell
 
 
 def _build_cell_task(
@@ -74,14 +90,18 @@ def _build_cell_task(
     kwargs: dict[str, Any],
     unique_name: str,
     bound_args: dict[str, str],
+    dbu: float,
     deps: Set[Path] | None = None,
     external_pkgs: Set[str] | None = None,
+    cache_file: Path | None = None,
 ) -> Cell:
-    """Task to build a cell in a background thread."""
+    """Build and finalize a cell in an isolated layout."""
     from gdswell.stats import _record_build_time
 
     # Each thread works in its own Layout context to ensure thread-safety
-    with Layout(name=f"thread_{unique_name}") as layout:
+    build_layout = Layout(name=f"thread_{unique_name}")
+    build_layout.kdb.dbu = dbu
+    with build_layout as layout:
         try:
             start_time = time.perf_counter()
             created_cell = func(*args, **kwargs)
@@ -92,11 +112,15 @@ def _build_cell_task(
         duration = time.perf_counter() - start_time
         _record_build_time(getattr(func, "__name__", "unknown"), duration)
 
-        _finalize_cell(created_cell, func, unique_name, bound_args, deps, external_pkgs)
-
-        # Cleanup global pending registry
-        with _GLOBAL_LOCK:
-            _GLOBAL_PENDING.pop(unique_name, None)
+        created_cell = _finalize_cell(
+            created_cell,
+            func,
+            unique_name,
+            bound_args,
+            deps,
+            external_pkgs,
+            cache_file,
+        )
 
         return created_cell
 
@@ -157,11 +181,21 @@ def cell(func: F) -> F:
                 return cell
 
             # 4. Disk cache lookup
+            use_disk_cache = config.use_disk_cache
+            async_cells = config.async_cells
             cache_file = config.cache_dir / f"{unique_name}.oas"
-            if config.use_disk_cache and cache_file.exists():
-                cell = layout._read_internal(str(cache_file), cell_name=unique_name)
+            if use_disk_cache and cache_file.exists():
+                cached_cell = load_from_disk_cache(cache_file, unique_name)
                 _record_hit_disk(func_name)
-                return cell
+                if not async_cells:
+                    return Cell._from_kdb_cell(cached_cell.kdb, layout=layout)
+
+                future: Future[Cell] = Future()
+                future.set_result(cached_cell)
+                f_cell = FutureCell(future, layout, unique_name)
+                layout._cache[unique_name] = f_cell
+                layout._pending_cells[f_cell] = None
+                return f_cell
 
             # 5. Global build synchronization (In-flight builds in other layouts/threads)
             with _GLOBAL_LOCK:
@@ -173,15 +207,36 @@ def cell(func: F) -> F:
                     return f_cell
 
             # 6. Create cell on miss
-            if not config.async_cells:
-                start_time = time.perf_counter()
-                created_cell = func(*args, **kwargs)
-                duration = time.perf_counter() - start_time
-                from gdswell.stats import _record_build_time
+            if not async_cells:
+                if use_disk_cache:
+                    cached_cell = _build_cell_task(
+                        func,
+                        args,
+                        kwargs,
+                        unique_name,
+                        bound_args,
+                        layout.kdb.dbu,
+                        deps,
+                        external_pkgs,
+                        cache_file,
+                    )
+                    created_cell = Cell._from_kdb_cell(cached_cell.kdb, layout=layout)
+                else:
+                    start_time = time.perf_counter()
+                    created_cell = func(*args, **kwargs)
+                    duration = time.perf_counter() - start_time
+                    from gdswell.stats import _record_build_time
 
-                _record_build_time(func_name, duration)
+                    _record_build_time(func_name, duration)
 
-                _finalize_cell(created_cell, func, unique_name, bound_args, deps, external_pkgs)
+                    created_cell = _finalize_cell(
+                        created_cell,
+                        func,
+                        unique_name,
+                        bound_args,
+                        deps,
+                        external_pkgs,
+                    )
                 with layout._lock:
                     layout._cache[unique_name] = created_cell
                 return created_cell
@@ -199,10 +254,15 @@ def cell(func: F) -> F:
                             kwargs,
                             unique_name,
                             bound_args,
+                            layout.kdb.dbu,
                             deps,
                             external_pkgs,
+                            cache_file if use_disk_cache else None,
                         )
                         _GLOBAL_PENDING[unique_name] = future
+                        future.add_done_callback(
+                            functools.partial(_clear_global_pending, unique_name)
+                        )
 
                 f_cell = FutureCell(future, layout, unique_name)
                 with layout._lock:

@@ -18,11 +18,12 @@ def save_to_disk_cache(
     unique_name: str,
     deps: set[Path] | None = None,
     external_pkgs: set[str] | None = None,
-) -> None:
+    cache_file: Path | None = None,
+) -> Path:
     """Save a cell to the disk cache atomically."""
     import klayout.db as kdb
 
-    cache_file = config.cache_dir / f"{unique_name}.oas"
+    cache_file = cache_file or config.cache_dir / f"{unique_name}.oas"
     cache_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Use SaveLayoutOptions to save only this cell and its dependencies
@@ -51,3 +52,17 @@ def save_to_disk_cache(
             "external_packages": sorted(external_pkgs) if external_pkgs else [],
         }
         dep_file.write_text(json.dumps(dep_data, indent=2))
+
+    return cache_file
+
+
+def load_from_disk_cache(cache_file: Path, unique_name: str) -> Cell:
+    """Load a cached cell into an isolated layout without another copy step."""
+    from gdswell.layout import Layout
+
+    cache_layout = Layout(name=f"cache_{unique_name}")
+    with cache_layout:
+        cache_layout.kdb.read(str(cache_file))
+        if cache_layout.kdb.cell(unique_name) is None:
+            raise ValueError(f"Cell '{unique_name}' not found in {cache_file}")
+        return cache_layout.cell(unique_name)

@@ -65,6 +65,7 @@ class FutureCell(Cell):
         if ACTIVE_LAYOUT.get() is home_ly:
             cell = Cell._from_kdb_cell(raw_cell.kdb, layout=home_ly)
             object.__setattr__(self, "_cell", cell)
+            object.__setattr__(self, "_future", None)
 
             # Remove from layout's pending set, but KEEP in spectator's PENDING_CACHE
             # to maintain identity preservation for future @cell calls.

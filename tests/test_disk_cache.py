@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import gdswell as gw
+from gdswell.cache import load_from_disk_cache, save_to_disk_cache
 
 
 @gw.cell
@@ -64,6 +65,26 @@ def test_disk_cache_disabled(tmp_path: Path) -> None:
         name = c.name
         cache_file = test_cache_dir / f"{name}.oas"
         assert not cache_file.exists()
+
+
+def test_cache_loader_preserves_oas_database_unit(tmp_path: Path) -> None:
+    cache_file = tmp_path / "dbu_cell.oas"
+
+    with gw.Layout() as source_layout:
+        source_layout.kdb.dbu = 0.0005
+        source_cell = gw.Cell()
+        source_cell.kdb.name = "dbu_cell"
+        source_cell.add_polygon(
+            [(0.0005, 0.0005), (1.0005, 0.0005), (1.0005, 1.0005), (0.0005, 1.0005)],
+            gw.Layer(1, 0),
+        )
+        save_to_disk_cache(source_cell, "dbu_cell", cache_file=cache_file)
+
+    loaded_cell = load_from_disk_cache(cache_file, "dbu_cell")
+
+    assert loaded_cell.layout.kdb.dbu == pytest.approx(0.0005)
+    assert loaded_cell.bbox().left == pytest.approx(0.0005)
+    assert loaded_cell.bbox().right == pytest.approx(1.0005)
 
 
 if __name__ == "__main__":

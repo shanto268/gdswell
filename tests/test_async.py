@@ -1,7 +1,11 @@
 # Copyright 2026 Helge Gehring, Simon Bilodeau and contributors.
 # Licensed under the Apache License, Version 2.0.
+import os
+import subprocess
+import sys
 import time
 from enum import Enum
+from pathlib import Path
 
 import pytest
 
@@ -93,6 +97,61 @@ def test_async_error_propagation() -> None:
         f = broken_cell()
         with pytest.raises(ValueError, match="Intentional error"):
             _ = f.name  # Trigger await
+
+
+def test_warm_child_does_not_deadlock_single_worker_parent(tmp_path: Path) -> None:
+    cache_dir = tmp_path / "cache"
+    script = f"""
+from pathlib import Path
+
+import gdswell as gw
+
+
+@gw.cell
+def cached_child(key: str) -> gw.Cell:
+    cell = gw.Cell()
+    cell.add_polygon([(0, 0), (2, 0), (2, 1), (0, 1)], gw.Layer(1, 0))
+    return cell
+
+
+@gw.cell
+def cold_parent(key: str) -> gw.Cell:
+    cell = gw.Cell()
+    cell.add_ref(cached_child(key))
+    return cell
+
+
+gw.config.cache_dir = Path({str(cache_dir)!r})
+gw.config.use_disk_cache = True
+gw.config.async_cells = False
+gw.clear_cache()
+
+with gw.Layout():
+    cached_child("shared")
+
+gw.config.async_cells = True
+with gw.Layout() as layout:
+    cold_parent("shared")
+    layout.wait()
+"""
+    env = os.environ.copy()
+    env["GDSWELL_MAX_WORKERS"] = "1"
+    source_dir = Path(__file__).resolve().parents[1] / "src"
+    python_path = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = os.pathsep.join(
+        part for part in (str(source_dir), python_path) if part is not None
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        env=env,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.fixture(autouse=True)
